@@ -34,6 +34,8 @@ public class ProducerService {
     }
 
     public String deleteProducer(Long producerId) {
+        if (producerRepository.findById(producerId).isEmpty())
+            throw new CustomException("Il produttore con ID "+ producerId + " non è stato trovato.");
         try{
             producerRepository.deleteById(producerId);
             return "Produttore eliminato.";

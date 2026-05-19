@@ -72,8 +72,7 @@ public class ProductService {
 
     @Transactional
     public Product updateProduct(@NotNull Product product) {
-        Product exist = productRepository.findProductById(product.getId());
-        if(exist == null) throw new IllegalArgumentException("Prodotto non trovato.");
+        Product exist = productRepository.findById( product.getId() ).orElseThrow( ()-> new IllegalArgumentException("Prodotto non trovato."));
         //controllo dell'esistenza del produttore e della categoria, se non esistono vengono creati
         if( product.getProducer().getId() == null )
             product.setProducer(exist.getProducer());
@@ -84,8 +83,7 @@ public class ProductService {
 
     @Transactional
     public String deleteProduct(@NotNull Long productId) {
-        Product exist = productRepository.findProductById(productId);
-        if (exist == null) throw new CustomException("Prodotto non trovato");
+        Product exist = productRepository.findById( productId ).orElseThrow( ()-> new IllegalArgumentException("Prodotto non trovato."));
         productRepository.delete(exist);
         return "Il prodotto con id " + productId + "("+ exist.getName() + ", "+ exist.getProducer() +
                 ") è stato eliminato con successo.";

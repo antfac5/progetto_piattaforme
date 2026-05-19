@@ -33,7 +33,7 @@ public class ProductController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<HttpResponse> createNewProduct(@RequestBody Product product) {
-        if(product == null) return new ResponseEntity<>(HttpStatus.BAD_REQUEST); // restituisce
+        if(product == null) return new ResponseEntity<>(HttpStatus.BAD_REQUEST); // restituisce un errore 400 Bad Request se il prodotto è null
         return ResponseEntity.ok().body(
                 HttpResponse.builder()
                         .timeStamp(now().toString())
