@@ -95,7 +95,7 @@ public class ProductService {
         return productRepository.findAll(PageRequest.of(page, size, Sort.by(Sort.Direction.fromString(sortDirection), sortBy)));
     }
 
-    public Product getProductById(Long productId) { return productRepository.findProductById(productId); }
+    public Product getProductById(Long productId) { return productRepository.findById(productId).orElseThrow( ()-> new IllegalArgumentException("Prodotto non trovato.")); }
 
     // Metodo che restituisce una pagina di prodotti filtrati per categorie il cui id è contenuto in categoryIds
     public Page<Product> getAllProductsOfCategory(List<Long> categoryIds) {

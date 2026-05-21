@@ -10,6 +10,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
   ecommerce-backend:
+    build: .
     environment:
       KEYCLOAK_SERVER_URL: "http://ecommerce-keycloak:8080/"
       KEYCLOAK_ADMIN_REALM: "master"
