@@ -37,6 +37,9 @@ public class Order {
     @Column(name = "order_status")
     private OrderStatus orderStatus;
 
+    @Version //questo campo viene utilizzato per la gestione della concorrenza ottimistica. Quando più transazioni tentano di aggiornare lo stesso record contemporaneamente, il sistema utilizza il campo version per rilevare conflitti e prevenire sovrascritture accidentali dei dati. Ogni volta che un record viene aggiornato, il valore del campo version viene incrementato automaticamente. Se una transazione tenta di aggiornare un record con un valore di version obsoleto, viene sollevata un'eccezione, consentendo al sistema di gestire la situazione in modo appropriato (ad esempio, ritentando l'operazione o informando l'utente del conflitto).
+    private Long version;
+
     @Column(name = "total_amount")
     private Double totalAmount;
 

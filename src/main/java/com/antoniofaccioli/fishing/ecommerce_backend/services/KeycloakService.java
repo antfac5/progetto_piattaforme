@@ -144,7 +144,6 @@ public class KeycloakService {
         }else{
             throw new CustomException("Errore nell'eliminare l'utente.");
         }
-
     }
 
     @PreAuthorize("hasRole('ADMIN') or #userId == principal")
