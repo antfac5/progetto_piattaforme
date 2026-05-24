@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -48,4 +49,5 @@ public class OrderService {
         }
         return pendingCart;
     }
+
 }
