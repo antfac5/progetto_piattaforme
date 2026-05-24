@@ -3,9 +3,11 @@ package com.antoniofaccioli.fishing.ecommerce_backend.repositories;
 import com.antoniofaccioli.fishing.ecommerce_backend.entities.OrderProduct;
 import com.antoniofaccioli.fishing.ecommerce_backend.entities.OrderProductPK;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -20,4 +22,9 @@ public interface OrderProductRepository extends JpaRepository<OrderProduct, Orde
     @Query("SELECT op FROM OrderProduct op WHERE op.pk.order.id = :cartId") //restiuisce tutti i prodotti associati ad un ordine
     List<OrderProduct> findAllByOrderId(
             @Param("cartId") Long orderId);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM OrderProduct op WHERE op.pk.order.id = :orderId")
+    void deleteAllByOrderId(@Param("orderId") Long orderId);
 }

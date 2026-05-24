@@ -41,7 +41,8 @@ public class Order {
     private Long version;
 
     @Column(name = "total_amount")
-    private Double totalAmount;
+    private Double totalAmount; //campo che rappresenta l'importo totale dell'ordine. Viene calcolato sommando il prezzo
+                                // di ogni prodotto moltiplicato per la quantita' acquistata.
 
     @Column(name = "shipping_address")
     private String shippingAddress;
@@ -55,7 +56,8 @@ public class Order {
                                     //l'utente acquista un prodotto come regalo per qualcun altro, o quando desidera che
                                     //l'ordine venga consegnato a un indirizzo diverso da quello associato al proprio account.
 
-    @OneToMany //relazione uno-a-molti tra Order e OrderProduct, un ordine può contenere più prodotti.
+    //relazione uno-a-molti tra Order e OrderProduct, un ordine può contenere più prodotti.
+    @OneToMany (mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true) //se un ordine viene cancellato, cancella anche i prodotti associati a quell'ordine
     @JsonManagedReference //gestisce la serializzazione JSON e previene problemi di riferimento circolare quando si serializzano oggetti che hanno relazioni bidirezionali. In questo caso, indica che questa parte della relazione è quella "gestita" (managed) e che l'altra parte (in User) sarà quella "indietro" (back).
     @Valid //assicura che quando si crea o aggiorna un ordine, l'utente associato sia valido secondo le regole di validazione definite nella classe User.
     private java.util.List<OrderProduct> orderProducts = new java.util.ArrayList<>(); //lista dei prodotti associati a questo ordine
