@@ -45,5 +45,4 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
       AND o.orderStatus = OrderStatus.PENDING
 """)
     Optional<Order> findPendingCartByUserIdForceIncrement(@Param("userId") String userId);
-
 }
