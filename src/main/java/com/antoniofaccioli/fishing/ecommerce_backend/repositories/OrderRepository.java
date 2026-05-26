@@ -13,7 +13,7 @@ import java.util.Optional;
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("SELECT o FROM Order o WHERE o.user.id = :userId AND o.orderStatus!= 'PENDING'")
-    Order findAllByUserId(@Param("userId") String userId);
+    List<Order> findAllByUserId(@Param("userId") String userId);
 
     @Query("SELECT o FROM Order  o WHERE o.user.id = :userId AND o.id = :orderId")
     List<Order> findAllByUserIdAndOrderId(
@@ -28,7 +28,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("userId") String userId,
             @Param("orderStatus") String orderStatus);
 
-    @Query("SELECT o FROM Order o WHERE o.orderStatus!= 'PENDING' ORDER BY o.dateCreated DESC") // query che
+    @Query("SELECT o FROM Order o WHERE o.orderStatus!= 'PENDING' ORDER BY o.dateCreated DESC")
     List<Order> findAllByOrderStatus();
 
     void deleteByUserId(String userId);
@@ -43,6 +43,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     FROM Order o
     WHERE o.user.id = :userId
       AND o.orderStatus = OrderStatus.PENDING
-""")
+    """)
     Optional<Order> findPendingCartByUserIdForceIncrement(@Param("userId") String userId);
 }

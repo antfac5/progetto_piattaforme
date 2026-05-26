@@ -36,4 +36,5 @@ public class InventoryService {
             throw new CustomException("Operazione fallita. Il prodotto è stato modificato o aggiornato da un altro utente. Si prega di riprovare.");
         }
     }
+
 }

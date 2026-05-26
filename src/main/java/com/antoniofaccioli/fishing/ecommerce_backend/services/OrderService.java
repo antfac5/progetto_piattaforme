@@ -67,21 +67,17 @@ public class OrderService {
 
     // reset del carrello robusto alla race condition
     @Transactional
-    public Order resetCart(String userId, Long orderId) {
-        try {
-            // Carico l'ordine con OPTIMISTIC_FORCE_INCREMENT per bloccare la riga e far scattare l'eccezione in caso di modifica concorrente
-            Order order = orderRepository.findByIdOptimisticForceIncrement(orderId)
-                    .orElseThrow(() -> new CustomException("Errore nel ripristino del carrello: ordine non trovato"));
-
-            // Verifico che l'ordine appartenga all'utente
-            if (!order.getUser().getId().toString().equals(userId)) throw new CustomException("Non autorizzato");
+    public Order resetCart(String userId){
+        try{
+            Order order = orderRepository.findPendingCartByUserIdForceIncrement(userId)
+                    .orElseThrow(() -> new CustomException("Carrello non trovato."));
 
             // Verifica che il carrello non sia in stato Pending
             if (order.getOrderStatus() != OrderStatus.PENDING) throw new CustomException("Ordine non resettabile");
 
-            orderProductRepository.deleteAllByOrderId(orderId); //Svuoto le righe in modo atomico
+            orderProductRepository.deleteAllByOrderId(order.getId()); //Svuoto le righe in modo atomico
 
-            // Reset campi dell'Order (come richiesto)
+            // Reset campi dell'Order
             order.setTotalAmount(0.0);
             order.setShippingAddress(null);
             order.setPhoneNumber(null);
@@ -91,8 +87,7 @@ public class OrderService {
             orderRepository.flush(); // Flush per forzare l'aggiornamento e far scattare l'eccezione in caso di modifica concorrente
 
             return order;
-
-        } catch (OptimisticLockingFailureException ex) {
+        }catch (OptimisticLockingFailureException ex) {
             throw new CustomException("Conflitto: il carrello è stato modificato da un'altra operazione. Riprova.");
         }
     }
@@ -146,12 +141,9 @@ public class OrderService {
     }
 
     @Transactional
-    public Order removeProductFromCart(@NotNull Product product, String userId){
-        try{
-            if ( product.getId() == null) {
-                throw new CustomException("Prodotto non valido.");
-            }
-
+    public OrderProduct updateQtyInCart(@NotNull Product product, String userId, boolean qty){
+        // Viene incrementata o decrementata la quantità di un prodotto già presente nel carrello, a seconda del valore di quantity (true o false)
+        try {
             // Prendo il carrello con OPTIMISTIC_FORCE_INCREMENT (incrementa version)
             Order cart = orderRepository.findPendingCartByUserIdForceIncrement(userId)
                     .orElseThrow(() -> new CustomException("Carrello non trovato."));
@@ -163,27 +155,23 @@ public class OrderService {
                             && x.getPk().getProduct().getId().equals(product.getId()))
                     .findFirst()
                     .orElseThrow(() -> new CustomException("Prodotto non presente nel carrello"));
+            if(qty)
+                op.setQuantity(op.getQuantity() + 1); // incremento la quantità
+            else
+                if(op.getQuantity() > 1)
+                    op.setQuantity(op.getQuantity() - 1); // decremento la quantità
+                else
+                    cart.getOrderProducts().remove(op); // quantità 1 => rimuovo la riga
+            cart.setTotalAmount(cart.getTotalPrice()); // aggiorna totale
 
-
-            if (op.getQuantity() != null && op.getQuantity() > 1) {
-                op.setQuantity(op.getQuantity() - 1); // decremento la quantità
-            } else {
-                cart.getOrderProducts().remove(op); // quantità 1 => rimuovo la riga
-            }
-
-            cart.setTotalAmount(cart.getTotalPrice()); // aggiorna totale (se lo persisti)
-
-            orderRepository.flush(); // Flush per forzare l'aggiornamento e far scattare l'eccezione in caso di modifica concorrente
-
-            return cart;
-
-        }catch(OptimisticLockingFailureException ex){
+            return op;
+        }catch (OptimisticLockingFailureException ex) {
             throw new CustomException("Conflitto: il carrello è stato modificato da un'altra operazione. Riprova.");
         }
     }
 
     @Transactional
-    public OrderProduct increaseProductQtyInCart(@NotNull Product product, String userId){
+    public Order removeProductFromCart(Product product, String userId){
         try {
             // Prendo il carrello con OPTIMISTIC_FORCE_INCREMENT (incrementa version)
             Order cart = orderRepository.findPendingCartByUserIdForceIncrement(userId)
@@ -197,10 +185,10 @@ public class OrderService {
                     .findFirst()
                     .orElseThrow(() -> new CustomException("Prodotto non presente nel carrello"));
 
-            op.setQuantity(op.getQuantity() + 1); // incremento la quantità
+            cart.getOrderProducts().remove(op); // rimuovo la riga
             cart.setTotalAmount(cart.getTotalPrice()); // aggiorna totale
 
-            return op;
+            return cart;
         }catch (OptimisticLockingFailureException ex) {
             throw new CustomException("Conflitto: il carrello è stato modificato da un'altra operazione. Riprova.");
         }
@@ -215,13 +203,10 @@ public class OrderService {
                 throw new CustomException("Errore durante il check-out. Campi richiesti mancanti.");
             }
 
-            UserRepresentation userRepresentation = keycloakService.getUserById(userId).orElseThrow(
-                    () -> new CustomException("Utente non trovato."));
-            Optional<User> userOptional = userRepository.findById(userId);
-
             // Prendo il carrello con OPTIMISTIC_FORCE_INCREMENT
             Order cart = orderRepository.findPendingCartByUserIdForceIncrement(userId)
                     .orElseThrow(() -> new CustomException("Carrello non trovato."));
+
             List<OrderProduct> products = orderProductRepository.findAllByOrderId(cart.getId());
             for(OrderProduct op : products){
                 Product p = op.getPk().getProduct();
@@ -238,16 +223,61 @@ public class OrderService {
 
             orderRepository.flush(); // Flush per forzare l'aggiornamento e far scattare l'eccezione in caso di modifica concorrente
 
-            createNewPendingCartForUser(userId);
+            createNewPendingCartForUser(userId); // Crea nuovo pending cart per lo stesso userId
+
             return cart;
         }catch(OptimisticLockingFailureException ex){
             throw new CustomException("Conflitto: il carrello è stato modificato da un'altra operazione. Riprova.");
         }
     }
 
-    private void createNewPendingCartForUser(String id) {
-        //TODO
+    private void createNewPendingCartForUser(String userId) {
+        // se esiste già un pending, non fare nulla (idempotente)
+        if (orderRepository.findPendingCartByUserIdForceIncrement(userId).isPresent()) {
+            return;
+        }
+        User user = userRepository.findById(userId).
+                orElseThrow( () -> new CustomException("Utente non trovato."));
+
+        Order newPendingCart = new Order();
+        newPendingCart.setUser(user);
+        newPendingCart.setDateCreated(LocalDateTime.now());
+        newPendingCart.setTotalAmount(0D);
+        newPendingCart.setOrderStatus(OrderStatus.PENDING);
+        orderRepository.save(newPendingCart);
+
+        orderRepository.flush(); // Flush per forzare l'aggiornamento e far scattare l'eccezione in caso di modifica concorrente
     }
 
+    public List<Order> getAllOrdersOfUser(String userId) {
+        return orderRepository.findAllByUserId(userId);
+    }
+
+    // Solo per scopi amministrativi, restituisce tutti gli ordini (esclusi i pending) di tutti gli utenti, ordinati per data di creazione decrescente
+    public List<Order> getAllOrders(){
+        return orderRepository.findAllByOrderStatus();
+    }
+
+    @Transactional
+    public Order updateOrderStatus(Long orderId, OrderStatus orderStatus){
+        try {
+            Order order = orderRepository.findByIdOptimisticForceIncrement(orderId)
+                    .orElseThrow(() -> new CustomException("Ordine non trovato."));
+            order.setOrderStatus(orderStatus);
+
+            if( orderStatus == OrderStatus.CANCELED ){
+                // se l'ordine viene cancellato, decremento numPurchases dei prodotti coinvolti
+                List<OrderProduct> products = orderProductRepository.findAllByOrderId(order.getId());
+                for(OrderProduct op : products){
+                    Product p = op.getPk().getProduct();
+                    p.setNumPurchases(p.getNumPurchases() - op.getQuantity()); // decremento numPurchases
+                    productRepository.save(p);
+                }
+            }
+            return orderRepository.save(order);
+        } catch (OptimisticLockingFailureException ex) {
+            throw new CustomException("Conflitto: l'ordine è stato modificato da un'altra operazione. Riprova.");
+        }
+    }
 
 }
