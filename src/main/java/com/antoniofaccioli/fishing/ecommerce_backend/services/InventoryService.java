@@ -15,7 +15,7 @@ public class InventoryService {
     @Autowired
     private ProductRepository productRepository;
 
-    public Product updateProducyQuantityInIntentory(Long productId, Integer quantity){
+    public Product updateProductQuantityInIntentory(Long productId, Integer quantity){
         try{
             Product product = productRepository.findById(productId).orElseThrow(()-> new CustomException("Prodotto non trovato."));
             int newQuantity = product.getQuantity() + quantity;

@@ -25,7 +25,7 @@ public class InventoryController {
         return ResponseEntity.ok().body(
                 HttpResponse.builder()
                         .timeStamp(java.time.LocalDateTime.now().toString())
-                        .data(java.util.Map.of("product", inventoryService.updateProducyQuantityInIntentory(productId, quantity)))
+                        .data(java.util.Map.of("product", inventoryService.updateProductQuantityInIntentory(productId, quantity)))
                         .message("Quantita' del prodotto aggiornata.")
                         .status(org.springframework.http.HttpStatus.OK)
                         .statusCode(org.springframework.http.HttpStatus.OK.value())

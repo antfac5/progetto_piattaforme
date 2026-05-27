@@ -123,7 +123,7 @@ public class OrderService {
                     .findFirst()
                     .orElse(null);
 
-            if (existing != null) {
+            if (existing != null && existing.getQuantity() < product.getQuantity()) {
                 existing.setQuantity(existing.getQuantity() + 1); // aggiunta quantità
             } else {
                 cart.getOrderProducts().add(new OrderProduct(cart, product, 1)); // nuova riga per il prodotto
@@ -156,12 +156,16 @@ public class OrderService {
                     .findFirst()
                     .orElseThrow(() -> new CustomException("Prodotto non presente nel carrello"));
             if(qty)
-                op.setQuantity(op.getQuantity() + 1); // incremento la quantità
+                // si vuole incrementare la quantita'
+                if(op.getQuantity() < product.getQuantity()) // controllo che non superi la disponibilita'
+                    op.setQuantity(op.getQuantity() + 1); // incremento la quantita'
+                else // quantita' massima sforata
+                    throw new CustomException("Non è possibile aggiungere più di " + product.getQuantity() + " unità di questo prodotto.");
             else
                 if(op.getQuantity() > 1)
-                    op.setQuantity(op.getQuantity() - 1); // decremento la quantità
+                    op.setQuantity(op.getQuantity() - 1); // decremento la quantita'
                 else
-                    cart.getOrderProducts().remove(op); // quantità 1 => rimuovo la riga
+                    cart.getOrderProducts().remove(op); // quantita' 1 => rimuovo la riga
             cart.setTotalAmount(cart.getTotalPrice()); // aggiorna totale
 
             return op;
@@ -209,9 +213,13 @@ public class OrderService {
 
             List<OrderProduct> products = orderProductRepository.findAllByOrderId(cart.getId());
             for(OrderProduct op : products){
-                Product p = op.getPk().getProduct();
-                p.setNumPurchases(op.getProduct().getNumPurchases() + op.getQuantity()); // incremento numPurchases
-                productRepository.save(p);
+                Long productId = op.getPk().getProduct().getId();
+                int qtyRequested = op.getQuantity();
+                int updated = productRepository.tryDecrementStock(productId, qtyRequested); // decremento stock atomico
+                if (updated == 0) {
+                    throw new CustomException("Quantità non disponibile per il prodotto con id: " + productId);
+                }
+                productRepository.incrementNumPurchases(productId, qtyRequested); // incremento numPurchases atomico
             }
 
             cart.setDateCreated(LocalDateTime.now());
@@ -279,5 +287,4 @@ public class OrderService {
             throw new CustomException("Conflitto: l'ordine è stato modificato da un'altra operazione. Riprova.");
         }
     }
-
 }

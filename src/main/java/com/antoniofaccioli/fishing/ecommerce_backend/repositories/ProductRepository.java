@@ -4,6 +4,7 @@ import com.antoniofaccioli.fishing.ecommerce_backend.entities.Product;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -29,6 +30,27 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @Query("SELECT p FROM Product p WHERE p.numPurchases IS NOT NULL AND p.numPurchases != 0")
     List<Product> findAllProductsByNumPurchasesIsNotNull();
+
+    // decremento contatore stock atomico
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        update Product p
+           set p.quantity = p.quantity - :qty
+         where p.id = :productId
+           and p.quantity >= :qty
+    """)
+    int tryDecrementStock(@Param("productId") Long productId,
+                          @Param("qty") Integer qty);
+
+    // incremento contatore acquisti atomico
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        update Product p
+           set p.numPurchases = p.numPurchases + :delta
+         where p.id = :productId
+    """)
+    int incrementNumPurchases(@Param("productId") Long productId,
+                              @Param("delta") Integer delta);
 
 
 }
