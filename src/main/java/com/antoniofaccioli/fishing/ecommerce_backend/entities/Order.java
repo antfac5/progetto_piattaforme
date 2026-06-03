@@ -57,7 +57,7 @@ public class Order {
                                     //l'ordine venga consegnato a un indirizzo diverso da quello associato al proprio account.
 
     //relazione uno-a-molti tra Order e OrderProduct, un ordine può contenere più prodotti.
-    @OneToMany (mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true) //se un ordine viene cancellato, cancella anche i prodotti associati a quell'ordine
+    @OneToMany (mappedBy = "pk.order", cascade = CascadeType.ALL, orphanRemoval = true) //se un ordine viene cancellato, cancella anche i prodotti associati a quell'ordine
     @JsonManagedReference //gestisce la serializzazione JSON e previene problemi di riferimento circolare quando si serializzano oggetti che hanno relazioni bidirezionali. In questo caso, indica che questa parte della relazione è quella "gestita" (managed) e che l'altra parte (in User) sarà quella "indietro" (back).
     @Valid //assicura che quando si crea o aggiorna un ordine, l'utente associato sia valido secondo le regole di validazione definite nella classe User.
     private java.util.List<OrderProduct> orderProducts = new java.util.ArrayList<>(); //lista dei prodotti associati a questo ordine

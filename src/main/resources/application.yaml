@@ -12,7 +12,7 @@ spring:
     name: ecommerce-backend
   datasource:
     # MySQL Database Configuration
-    url: jdbc:mysql://localhost:3306/ecommerce_db
+    url: ${DB_URL:jdbc:mysql://mysql:3306/ecommerce_db}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -20,12 +20,12 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
-    database-platform: "org.hibernate.dialect.MySQL8Dialect"
+    #database-platform: "org.hibernate.dialect.MySQL8Dialect"
   security:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8080/realms/fishing
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://ecommerce-keycloak:8080/realms/fishing}
           jwk-set-uri: ${spring.security.oauth2.resourceserver.jwt.issuer-uri}/protocol/openid-connect/certs
 
 jwt:
@@ -33,7 +33,6 @@ jwt:
     converter:
       resource-id: fishing-rest-api
       principal-attribute: preferred_username
-
 
 logging:
   level:

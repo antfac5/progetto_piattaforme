@@ -11,7 +11,7 @@ import lombok.Setter;
 @Entity
 @AllArgsConstructor
 @Table(name = "order_product")
-//questa classe rappresenta la relazione molti a molti tra Order e Product, con l'aggiunta di un campo quantity per
+// Questa classe rappresenta la relazione molti a molti tra Order e Product, con l'aggiunta di un campo quantity per
 // indicare la quantità di quel prodotto in quell'ordine
 public class OrderProduct {
     @EmbeddedId

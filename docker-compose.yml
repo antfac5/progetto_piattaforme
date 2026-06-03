@@ -11,8 +11,14 @@ services:
       - mysql_data:/var/lib/mysql
   ecommerce-backend:
     build: .
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mysql
+      - keycloak
     environment:
       KEYCLOAK_SERVER_URL: "http://ecommerce-keycloak:8080/"
+      KEYCLOAK_ISSUER_URI: "http://ecommerce-keycloak:8080/realms/fishing"
       KEYCLOAK_ADMIN_REALM: "master"
       KEYCLOAK_APP_REALM: "fishing"
       KEYCLOAK_ADMIN_CLIENT_ID: "admin-cli"
@@ -20,6 +26,9 @@ services:
       KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+      DB_URL: jdbc:mysql://mysql:3306/ecommerce_db
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.0
