@@ -3,6 +3,8 @@ package com.antoniofaccioli.fishing.ecommerce_backend.controllers;
 import com.antoniofaccioli.fishing.ecommerce_backend.entities.Producer;
 import com.antoniofaccioli.fishing.ecommerce_backend.services.ProducerService;
 import com.antoniofaccioli.fishing.ecommerce_backend.support.domain.HttpResponse;
+import com.antoniofaccioli.fishing.ecommerce_backend.support.dto.ProducerDTO;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,12 +24,12 @@ public class ProducerController {
     //CREATE
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<HttpResponse> createNewProducer(String producerName, String imageUrl) {
-        if(producerName == null) return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    public ResponseEntity<HttpResponse> createNewProducer(@Valid @RequestBody ProducerDTO request) {
+        if(request.getName() == null) return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         return ResponseEntity.ok().body(
                 HttpResponse.builder()
                         .timeStamp(String.valueOf(System.currentTimeMillis()))
-                        .data(Map.of("producer", producerService.addNewProducer(producerName, imageUrl)))
+                        .data(Map.of("producer", producerService.addNewProducer(request.getName(), request.getImageUrl())))
                         .message("Un nuovo produttore è stato aggiunto nel database.")
                         .status(HttpStatus.OK)
                         .statusCode(HttpStatus.OK.value())
@@ -42,7 +44,7 @@ public class ProducerController {
     }
 
     //UPDATE
-    @RequestMapping(value = "/{producerId}", method= RequestMethod.PUT) //serve a
+    @PutMapping(value = "/{producerId}") //serve a
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<HttpResponse> updateProducer(@PathVariable("producerId") Long producerId, @RequestBody Producer producer) {
         return ResponseEntity.ok().body(

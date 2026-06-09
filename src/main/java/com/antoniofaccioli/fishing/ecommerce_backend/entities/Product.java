@@ -20,7 +20,6 @@ public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
-    @NotNull
     private Long id;
 
     @Column(name = "name")
@@ -34,7 +33,7 @@ public class Product {
     private double price;
 
     @Column(name = "final_price")
-    private double finalPrice;
+    private Double finalPrice;
 
     @Column(name = "discount")
     private Integer discount; // percetuale offerta (20 per 20% off)

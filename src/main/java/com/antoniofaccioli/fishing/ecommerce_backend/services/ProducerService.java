@@ -28,9 +28,12 @@ public class ProducerService {
         return producerRepository.findAll();
     }
 
-    public Producer updateProducer(Long id, Producer producer){
-        Producer exist = producerRepository.findById(id).orElse( new Producer() );
-        return producerRepository.save(producer);
+    public Producer updateProducer(Long id, Producer p){
+        Producer exist = producerRepository.findById(id).orElseGet( ()-> new Producer() );
+        exist.setId(p.getId());
+        exist.setName(p.getName());
+        exist.setImageUrl(p.getImageUrl());
+        return producerRepository.save(exist);
     }
 
     public String deleteProducer(Long producerId) {

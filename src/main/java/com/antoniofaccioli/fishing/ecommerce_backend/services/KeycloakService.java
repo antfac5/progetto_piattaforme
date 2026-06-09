@@ -4,6 +4,7 @@ import com.antoniofaccioli.fishing.ecommerce_backend.configurations.KeycloakConf
 import com.antoniofaccioli.fishing.ecommerce_backend.entities.User;
 import com.antoniofaccioli.fishing.ecommerce_backend.repositories.UserRepository;
 import org.keycloak.common.util.CollectionUtil;
+import org.keycloak.representations.idm.CredentialRepresentation;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.resource.*;
@@ -17,14 +18,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import com.antoniofaccioli.fishing.ecommerce_backend.support.exceptions.CustomException;
+import org.springframework.dao.DataIntegrityViolationException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,8 +41,107 @@ public class KeycloakService {
     @Value("${app-realm}")
     private String appRealm;
 
-    // Metodo che restituisce l'id dell'utente attualmente autenticato, estraendolo dal token JWT presente nel contesto
-    // di sicurezza di Spring Security. Se non c'è un utente autenticato o se il token non è un JWT valido, viene sollevata un'eccezione.
+    /** Registra un nuovo utente garantendo la consistenza atomica tra Keycloak e il DB locale.
+     *  Il metodo è sincronizzato per prevenire race condition concorrenti sullo stesso nodo applicativo.*/
+    public synchronized User registerNewUser(String username, String email, String password, String firstName, String lastName) {
+        // Validazione input e normalizzazione
+        if (username == null || email == null || password == null) {
+            throw new CustomException("Username, Email e Password sono obbligatori.");
+        }
+
+        String cleanEmail = email.trim().toLowerCase();
+        String cleanUsername = username.trim().toLowerCase();
+
+        // Controllo preventivo sul DB Locale (Fast-Fail per alleggerire Keycloak)
+        if (userRepository.existsUserByEmail(cleanEmail)) throw new CustomException("Questa email e' già registrata nel sistema.");
+        if(userRepository.existsUserByUsername(cleanUsername)) throw new CustomException("Questo username e' già registrato nel sistema.");
+
+        RealmResource realmResource = keycloak.realm(appRealm);
+        UsersResource usersResource = realmResource.users();
+
+        // Configurazione credenziali
+        CredentialRepresentation credential = new CredentialRepresentation();
+        credential.setType(CredentialRepresentation.PASSWORD);
+        credential.setValue(password);
+        credential.setTemporary(false);
+
+        // Configurazione utente Keycloak
+        UserRepresentation keycloakUser = new UserRepresentation();
+        keycloakUser.setUsername(cleanUsername);
+        keycloakUser.setEmail(cleanEmail);
+        keycloakUser.setFirstName(firstName);
+        keycloakUser.setLastName(lastName);
+        keycloakUser.setEnabled(true);
+        keycloakUser.setCredentials(List.of(credential));
+
+        // Invio della richiesta a Keycloak
+        Response response = null;
+        String keycloakUserId = null;
+
+        try {
+            response = usersResource.create(keycloakUser);
+            if (response.getStatus() == 409) throw new CustomException("Username o Email già esistenti su Keycloak."); // Conflitto nativo rilevato da Keycloak
+            if (response.getStatus() != 201) throw new CustomException("Errore Keycloak durante la registrazione. Status: " + response.getStatus());
+
+            // Estrazione ID assegnato da Keycloak
+            String path = response.getLocation().getPath();
+            keycloakUserId = path.substring(path.lastIndexOf('/') + 1);
+
+            // Assegnazione del Ruolo USER su Keycloak
+            List<ClientRepresentation> clients = realmResource.clients().findByClientId("fishing-rest-api");
+            if (!clients.isEmpty()) {
+                String clientUuid = clients.get(0).getId();
+                RoleRepresentation userRole = realmResource.clients().get(clientUuid).roles().get("USER").toRepresentation();
+                usersResource.get(keycloakUserId).roles().clientLevel(clientUuid).add(List.of(userRole));
+            }
+
+            // Salvataggio su DB Locale con gestione vincoli di integrità
+            User localUser = new User();
+            localUser.setId(keycloakUserId);
+            localUser.setEmail(cleanEmail);
+            localUser.setFirstName(firstName);
+            localUser.setLastName(lastName);
+            localUser.setRoles(Set.of("USER"));
+
+            // se c'è una race condition sull'email o sull'ID, l'eccezione viene lanciata QUI immediatamente e non alla fine del thread/metodo.
+            User savedUser = userRepository.saveAndFlush(localUser); // per forzare subito la scrittura sul database.
+            log.info("Utente registrato con successo. Keycloak UUID: {}", keycloakUserId);
+            return savedUser;
+
+        } catch (DataIntegrityViolationException ex) {
+            // La race condition ha superato il controllo iniziale ma il Database locale ha bloccato il duplicato
+            log.error("Race condition rilevata sul DB locale per l'email: {}. Avvio compensazione.", cleanEmail);
+            cleanUpKeycloakUser(usersResource, keycloakUserId);
+            throw new CustomException("Errore di registrazione: i dati inseriti sono già utilizzati da un altro utente.");
+
+        } catch (Exception ex) {
+            log.error("Errore imprevisto durante la registrazione dell'utente. Avvio compensazione.", ex);
+            cleanUpKeycloakUser(usersResource, keycloakUserId);
+            if (ex instanceof CustomException) throw ex;
+            throw new CustomException("Impossibile completare la registrazione a causa di un errore interno.");
+        } finally {
+            if (response != null) response.close(); // Cruciale per evitare leak di connessioni HTTP
+        }
+    }
+
+    /**
+     * Metodo ausiliario di compensazione (Rollback manuale di Keycloak)
+     */
+    private void cleanUpKeycloakUser(UsersResource usersResource, String keycloakUserId) {
+        if (keycloakUserId != null) {
+            try {
+                usersResource.get(keycloakUserId).remove();
+                log.warn("Compensazione eseguita: rimosso utente orfano {} da Keycloak.", keycloakUserId);
+            } catch (WebApplicationException wae) {
+                log.error("Impossibile rimuovere l'utente orfano da Keycloak. ID: {}. Status: {}", keycloakUserId, wae.getResponse().getStatus());
+            } catch (Exception e) {
+                log.error("Errore durante la rimozione dell'utente orfano da Keycloak. ID: {}", keycloakUserId, e);
+            }
+        }
+    }
+
+    /** Metodo che restituisce l'id dell'utente attualmente autenticato, estraendolo dal token JWT presente nel contesto
+     di sicurezza di Spring Security. Se non c'è un utente autenticato o se il token non è un JWT valido, viene sollevata un'eccezione.*/
     public String getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication(); //recupera l'oggetto Authentication dal contesto di sicurezza di Spring Security, che rappresenta l'utente attualmente autenticato e le sue credenziali
         if (!(auth instanceof JwtAuthenticationToken jwtAuth) || !auth.isAuthenticated()) {
@@ -92,27 +192,16 @@ public class KeycloakService {
         return user;
     }
 
-    // Metodo che estrae la data di creazione dell'utente a partire dal timestamp presente nella rappresentazione
-    // dell'utente (UserRepresentation) restituita da Keycloak. Il timestamp viene convertito in un oggetto LocalDateTime
-    // utilizzando il fuso orario di sistema.
+    /** Metodo che estrae la data di creazione dell'utente a partire dal timestamp presente nella rappresentazione
+     * utente (UserRepresentation) restituita da Keycloak. Il timestamp viene convertito in un oggetto LocalDateTime
+     * utilizzando il fuso orario di sistema.*/
     private LocalDateTime extractCreatedAt(UserRepresentation userRepresentation) {
         long timestamp = userRepresentation.getCreatedTimestamp();
         return LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
     }
 
-    /*private static String extractAttribute(UserRepresentation userRepresentation, String property) {
-        Map<String, List<String>> attributes = userRepresentation.getAttributes();
-        if (attributes != null && attributes.size() > 0) {
-            List<String> properties = attributes.get(property);
-            if (!CollectionUtils.isEmpty(properties)) {
-                return properties.get(0);
-            }
-        }
-        return null;
-    }*/
-
-    // Metodo che mappa un oggetto User (entità del dominio) a un oggetto UserRepresentation
-    // (rappresentazione dell'utente utilizzata da Keycloak).
+    /** Metodo che mappa un oggetto User (entità del dominio) a un oggetto UserRepresentation
+    * (rappresentazione dell'utente utilizzata da Keycloak).*/
     private static UserRepresentation mapUserRep(User user) {
         UserRepresentation userRep = new UserRepresentation();
         userRep.setId(user.getId());

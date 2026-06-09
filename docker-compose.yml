@@ -19,6 +19,7 @@ services:
     environment:
       KEYCLOAK_SERVER_URL: "http://ecommerce-keycloak:8080/"
       KEYCLOAK_ISSUER_URI: "http://ecommerce-keycloak:8080/realms/fishing"
+      KEYCLOAK_JWK_SET_URI: "http://ecommerce-keycloak:8080/realms/fishing/protocol/openid-connect/certs"
       KEYCLOAK_ADMIN_REALM: "master"
       KEYCLOAK_APP_REALM: "fishing"
       KEYCLOAK_ADMIN_CLIENT_ID: "admin-cli"

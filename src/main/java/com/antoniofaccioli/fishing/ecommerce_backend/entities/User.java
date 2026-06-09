@@ -17,13 +17,16 @@ public class User {
     @Column(name = "id", nullable = false)
     private String id;
 
+    @Column(name = "username", nullable = false)
+    private String username;
+
     @Column(name = "firstname")
     private String firstName;
 
     @Column(name = "lastname")
     private String lastName;
 
-    @Column(name = "email")
+    @Column(name = "email", nullable = false)
     private String email;
 
     @ElementCollection

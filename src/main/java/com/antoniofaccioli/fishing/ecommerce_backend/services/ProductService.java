@@ -1,6 +1,5 @@
 package com.antoniofaccioli.fishing.ecommerce_backend.services;
 
-import com.antoniofaccioli.fishing.ecommerce_backend.entities.Producer;
 import com.antoniofaccioli.fishing.ecommerce_backend.entities.Product;
 import com.antoniofaccioli.fishing.ecommerce_backend.repositories.CategoryRepository;
 import com.antoniofaccioli.fishing.ecommerce_backend.repositories.ProducerRepository;
@@ -31,21 +30,30 @@ public class ProductService {
     @Autowired
     private CategoryRepository categoryRepository;
 
-    /*@Autowired
-    private*/
-
     @Transactional
     public Product addNewProduct(@NotNull Product product) {
-        if( product.getProducer() == null || product.getCategory() == null )
-            throw new IllegalArgumentException("Il prodotto deve avere un produttore e una categoria associati.");
-        //controllo dell'esistenza del produttore e della categoria, se non esistono vengono creati
-        producerRepository.findById(product.getProducer().getId())
-                .orElse(producerRepository.save( product.getProducer())
-                );
-        categoryRepository.findById(product.getCategory().getId())
-                .orElse(
-                        categoryRepository.save(product.getCategory())
-                );
+        // controllo della presenza di produttore e categoria
+        if((product.getProducer().getId() == null && product.getProducer().getName() == null)
+                || (product.getCategory().getId() == null && product.getCategory().getName() == null))
+            throw new CustomException("Il prodotto deve avere un produttore e una categoria associati.");
+
+        //controllo dell'esistenza del produttore, se non esiste viene creato
+        if( product.getProducer().getId() != null )
+            producerRepository.findById(product.getProducer().getId())
+                    .orElseGet(
+                            () -> producerRepository.save(product.getProducer())
+                    );
+        else producerRepository.save(product.getProducer()); // viene creato un nuovo produttore, viene generato l'id
+        product.setProducer(product.getProducer()); // // Assegna il produttore salvato (ora con ID generato)
+
+        //controllo dell'esistenza della categoria, se non esiste viene creata
+        if( product.getCategory().getId() != null )
+            categoryRepository.findById(product.getCategory().getId())
+                    .orElseGet(
+                            () -> categoryRepository.save(product.getCategory())
+                    );
+        else categoryRepository.save(product.getCategory());
+        product.setCategory(product.getCategory()); // Assegna la categoria salvata (ora con ID generato)
         //salvataggio del prodotto
         return productRepository.save(product);
     }
@@ -73,11 +81,30 @@ public class ProductService {
     @Transactional
     public Product updateProduct(@NotNull Product product) {
         Product exist = productRepository.findById( product.getId() ).orElseThrow( ()-> new IllegalArgumentException("Prodotto non trovato."));
-        //controllo dell'esistenza del produttore e della categoria, se non esistono vengono creati
-        if( product.getProducer().getId() == null )
-            product.setProducer(exist.getProducer());
-        if ( product.getCategory().getId() == null )
-            product.setCategory(exist.getCategory());
+        if(product.getProducer().getId() == null) {
+            // Il nuovo prodotto non possiede l'id del produttore
+            if (product.getProducer().getName() == null) product.setProducer(exist.getProducer()); // non avendo nemmeno il nome del produttore, inserisco quello del prodotto precedente alla modifica
+            else producerRepository.save(product.getProducer()); // avendo almeno il nome, lo registro come nuovo produttore
+        }
+        else{
+            // Il nuovo prodotto possiede l'id del produttore
+            // controllo che esista
+            producerRepository.findById(product.getProducer().getId()).orElseGet(
+                    () -> producerRepository.save(product.getProducer())
+            );
+        }
+        if (product.getCategory().getId() == null){
+            // Il nuovo prodotto non possiede l'id della categoria
+            if(product.getCategory().getName() == null) product.setCategory(exist.getCategory()); // non avendo nemmeno il nome della categoria, inserisco quella del prodotto precedente alla modifica
+            else categoryRepository.save(product.getCategory()); // avendo almeno il nome, la registro come nuova categoria
+        }
+        else{
+            // Il nuovo prodotto possiede l'id della categoria
+            // controllo che esista
+            categoryRepository.findById(product.getCategory().getId()).orElseGet(
+                    () -> categoryRepository.save(product.getCategory())
+            );
+        }
         return productRepository.save(product);
     }
 

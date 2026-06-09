@@ -60,13 +60,13 @@ public class KeycloakIdentityProvider {
         return builder.build();
     }
 
-    public static String getCurrentUsername() {
+    public static String getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
             Jwt jwt = jwtAuth.getToken();
-            String name = jwt.getClaimAsString("preferred_username");
-            logger.debug("getCurrentUsername: {}", name);
-            return name != null ? name : "";
+            String uuid = jwt.getClaimAsString("sub");
+            logger.debug("getCurrentUserId: {}", uuid);
+            return uuid != null ? uuid : "";
         }
         return "";
     }

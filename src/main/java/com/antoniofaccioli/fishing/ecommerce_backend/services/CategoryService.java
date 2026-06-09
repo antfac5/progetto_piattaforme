@@ -27,7 +27,7 @@ public class CategoryService {
         if( categoryRepository.findById(id).isEmpty() )
             throw new CustomException("La categoria con ID "+ id + " non è stata trovata.");
         try{
-            categoryRepository.deleteById(id);
+            categoryRepository.deleteCategoryById(id);
             return "Categoria eliminata";
         }catch (CustomException e){
             throw new CustomException("La categoria non può essere eliminata.");

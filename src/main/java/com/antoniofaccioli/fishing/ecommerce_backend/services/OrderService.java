@@ -88,13 +88,13 @@ public class OrderService {
 
             return order;
         }catch (OptimisticLockingFailureException ex) {
-            throw new CustomException("Conflitto: il carrello è stato modificato da un'altra operazione. Riprova.");
+            throw new CustomException("Conflitto: il carrello e' stato modificato da un'altra operazione. Riprova.");
         }
     }
 
     // aggiunta di un prodotto al carrello robusta alla race condition
     @Transactional
-    public Order addProductToCart(Product product, String userId) {
+    public Order addProductToCart(String userId, Product product) {
         try {
             if (product == null || product.getId() == null) {
                 throw new CustomException("Prodotto non valido.");
@@ -110,12 +110,12 @@ public class OrderService {
                         o.setUser(user);
                         o.setOrderStatus(OrderStatus.PENDING);
                         o.setDateCreated(LocalDateTime.now());
-                        o.setTotalAmount(0.0);
+                        o.setTotalAmount(0D);
                         return orderRepository.save(o);
                     });
 
-            // Aggiungo il prodotto al carrello (incremento quantità se già presente)
-            // Cerco se il prodotto è già presente nel carrello
+            // Aggiungo il prodotto al carrello (incremento quantita' se gia' presente)
+            // Cerco se il prodotto e' gia' presente nel carrello
             OrderProduct existing = cart.getOrderProducts().stream()
                     .filter(op -> op.getPk() != null
                             && op.getPk().getProduct() != null
@@ -123,8 +123,8 @@ public class OrderService {
                     .findFirst()
                     .orElse(null);
 
-            if (existing != null && existing.getQuantity() < product.getQuantity()) {
-                existing.setQuantity(existing.getQuantity() + 1); // aggiunta quantità
+            if (existing != null) {
+                if(existing.getQuantity() < product.getQuantity()) existing.setQuantity(existing.getQuantity() + 1); // aggiunta quantita'
             } else {
                 cart.getOrderProducts().add(new OrderProduct(cart, product, 1)); // nuova riga per il prodotto
             }
@@ -136,13 +136,13 @@ public class OrderService {
             return cart;
 
         }catch (OptimisticLockingFailureException ex) {
-            throw new CustomException("Conflitto: il carrello è stato modificato da un'altra operazione. Riprova.");
+            throw new CustomException("Conflitto: il carrello e' stato modificato da un'altra operazione. Riprova.");
         }
     }
 
     @Transactional
     public OrderProduct updateQtyInCart(@NotNull Product product, String userId, boolean qty){
-        // Viene incrementata o decrementata la quantità di un prodotto già presente nel carrello, a seconda del valore di quantity (true o false)
+        // Viene incrementata o decrementata la quantita' di un prodotto gia' presente nel carrello, a seconda del valore di quantity (true o false)
         try {
             // Prendo il carrello con OPTIMISTIC_FORCE_INCREMENT (incrementa version)
             Order cart = orderRepository.findPendingCartByUserIdForceIncrement(userId)
@@ -160,7 +160,7 @@ public class OrderService {
                 if(op.getQuantity() < product.getQuantity()) // controllo che non superi la disponibilita'
                     op.setQuantity(op.getQuantity() + 1); // incremento la quantita'
                 else // quantita' massima sforata
-                    throw new CustomException("Non è possibile aggiungere più di " + product.getQuantity() + " unità di questo prodotto.");
+                    throw new CustomException("Non e' possibile aggiungere più di " + product.getQuantity() + " unita' di questo prodotto.");
             else
                 if(op.getQuantity() > 1)
                     op.setQuantity(op.getQuantity() - 1); // decremento la quantita'
@@ -170,7 +170,7 @@ public class OrderService {
 
             return op;
         }catch (OptimisticLockingFailureException ex) {
-            throw new CustomException("Conflitto: il carrello è stato modificato da un'altra operazione. Riprova.");
+            throw new CustomException("Conflitto: il carrello e' stato modificato da un'altra operazione. Riprova.");
         }
     }
 
@@ -194,11 +194,11 @@ public class OrderService {
 
             return cart;
         }catch (OptimisticLockingFailureException ex) {
-            throw new CustomException("Conflitto: il carrello è stato modificato da un'altra operazione. Riprova.");
+            throw new CustomException("Conflitto: il carrello e' stato modificato da un'altra operazione. Riprova.");
         }
     }
 
-    @Transactional(rollbackFor = Exception.class) // aggiunta del rollback per garantire l'integrità in caso di errori
+    @Transactional(rollbackFor = Exception.class)
     public Order checkout(String userId, OrderForm orderForm){
         try{
             if (orderForm.getRecipientName() == null ||
@@ -217,7 +217,7 @@ public class OrderService {
                 int qtyRequested = op.getQuantity();
                 int updated = productRepository.tryDecrementStock(productId, qtyRequested); // decremento stock atomico
                 if (updated == 0) {
-                    throw new CustomException("Quantità non disponibile per il prodotto con id: " + productId);
+                    throw new CustomException("Quantita' non disponibile per il prodotto con id: " + productId);
                 }
                 productRepository.incrementNumPurchases(productId, qtyRequested); // incremento numPurchases atomico
             }
@@ -232,15 +232,16 @@ public class OrderService {
             orderRepository.flush(); // Flush per forzare l'aggiornamento e far scattare l'eccezione in caso di modifica concorrente
 
             createNewPendingCartForUser(userId); // Crea nuovo pending cart per lo stesso userId
-
+            cart.setOrderStatus(OrderStatus.PAID);
+            orderRepository.save(cart); // salvo l'ordine effettuato per lo storico
             return cart;
         }catch(OptimisticLockingFailureException ex){
-            throw new CustomException("Conflitto: il carrello è stato modificato da un'altra operazione. Riprova.");
+            throw new CustomException("Conflitto: il carrello e' stato modificato da un'altra operazione. Riprova.");
         }
     }
 
     private void createNewPendingCartForUser(String userId) {
-        // se esiste già un pending, non fare nulla (idempotente)
+        // se esiste gia' un pending, non fare nulla (idempotente)
         if (orderRepository.findPendingCartByUserIdForceIncrement(userId).isPresent()) {
             return;
         }
@@ -284,7 +285,7 @@ public class OrderService {
             }
             return orderRepository.save(order);
         } catch (OptimisticLockingFailureException ex) {
-            throw new CustomException("Conflitto: l'ordine è stato modificato da un'altra operazione. Riprova.");
+            throw new CustomException("Conflitto: l'ordine e' stato modificato da un'altra operazione. Riprova.");
         }
     }
 }

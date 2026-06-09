@@ -4,6 +4,7 @@ import com.antoniofaccioli.fishing.ecommerce_backend.entities.Order;
 import com.antoniofaccioli.fishing.ecommerce_backend.entities.OrderProduct;
 import com.antoniofaccioli.fishing.ecommerce_backend.entities.Product;
 import com.antoniofaccioli.fishing.ecommerce_backend.repositories.OrderRepository;
+import com.antoniofaccioli.fishing.ecommerce_backend.repositories.ProductRepository;
 import com.antoniofaccioli.fishing.ecommerce_backend.services.KeycloakService;
 import com.antoniofaccioli.fishing.ecommerce_backend.services.OrderProductService;
 import com.antoniofaccioli.fishing.ecommerce_backend.services.OrderService;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.time.LocalTime.now;
 
@@ -39,21 +41,27 @@ public class OrderController {
 
     @Autowired
     private OrderRepository orderRepository;
+    @Autowired
+    private ProductRepository productRepository;
 
     //CREATE
-    @PostMapping("/{userId}")
-    public ResponseEntity<HttpResponse> addProductToCart(@Valid @RequestBody Product product, @PathVariable("userId") String userId) {
+    @PostMapping("/cart")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<HttpResponse> addProductToCart(@Valid @RequestBody Long productId) {
+        String userId = keycloackService.getCurrentUserId();
+        Product product = productRepository.findProductById(productId); //se il prodotto non viene trovato, viene gestito nel OrderService
         return ResponseEntity.ok().body(
                 HttpResponse.builder()
                         .timeStamp(now().toString())
-                        .data(Map.of("item", orderService.addProductToCart(product, userId)))
+                        .data(Map.of("item", orderService.addProductToCart(userId, product)))
                         .message("Prodotto aggiunto nel carrello.")
                         .status(HttpStatus.OK)
                         .statusCode(HttpStatus.OK.value())
                         .build());
     }
 
-    @RequestMapping(value = "/checkout", method = RequestMethod.POST)
+    @PostMapping("/checkout")
+    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<HttpResponse> checkout(@RequestBody OrderForm orderForm) {
         String userId = keycloackService.getCurrentUserId();
         return ResponseEntity.ok().body(
@@ -74,23 +82,29 @@ public class OrderController {
     }
 
     @GetMapping("/user")
-    public List<Order> getAllOrdersofUser(@RequestParam(name = "id") String userId) {
+    public List<Order> getAllOrdersofUser() {
+        String userId = keycloackService.getCurrentUserId();
         return orderService.getAllOrdersOfUser(userId);
     }
 
     @GetMapping("/pending-cart")
-    public Order getPendingCart(@RequestParam String userId) {
+    @PreAuthorize("hasRole('USER')")
+    public Order getPendingCart() {
+        String userId = keycloackService.getCurrentUserId();
         return orderService.getPendingCart(userId);
     }
 
-    @GetMapping("/{userId}/cart-items")
-    public List<OrderProduct> getItemsInPendingCart(@PathVariable("userId") String userId) {
-        Order cart = getPendingCart(userId);
+    @GetMapping("/cart-items")
+    @PreAuthorize("hasRole('USER')")
+    public List<OrderProduct> getItemsInPendingCart() {
+        String userId = keycloackService.getCurrentUserId();
+        Order cart = orderService.getPendingCart(userId);
         return orderProductService.getItemsInPendingCart(cart.getId());
     }
 
     //UPDATE
-    @RequestMapping(value = "/order", method = RequestMethod.PUT)
+    @PutMapping(value = "/updateStatus")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<HttpResponse> updateOrderStatus(@RequestParam(name = "id") Long orderId, @Valid @RequestBody OrderStatus orderStatus) {
         return ResponseEntity.ok().body(
                 HttpResponse.builder()
@@ -102,8 +116,10 @@ public class OrderController {
                         .build());
     }
 
-    @RequestMapping(value = "/{userId}/incr-quantity/product", method = RequestMethod.PUT)
-    public ResponseEntity<HttpResponse> increaseProductQtyInCart(@PathVariable("userId") String userId, @RequestParam(name = "id") Product product) {
+    @PutMapping(value = "/incr-quantity/product")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<HttpResponse> increaseProductQtyInCart(@RequestParam(name = "id") Product product) {
+        String userId = keycloackService.getCurrentUserId();
         return ResponseEntity.ok().body(
                 HttpResponse.builder()
                         .timeStamp(now().toString())
@@ -114,8 +130,10 @@ public class OrderController {
                         .build());
     }
 
-    @RequestMapping(value = "/{userId}/decr-quantity/product", method = RequestMethod.PUT)
-    public ResponseEntity<HttpResponse> decreaseProductQtyInCart(@PathVariable("userId") String userId, @RequestParam(name = "id") Product product) {
+    @PutMapping(value = "/decr-quantity/product")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<HttpResponse> decreaseProductQtyInCart(@RequestParam(name = "id") Product product) {
+        String userId = keycloackService.getCurrentUserId();
         return ResponseEntity.ok().body(
                 HttpResponse.builder()
                         .timeStamp(now().toString())
@@ -127,8 +145,10 @@ public class OrderController {
     }
 
     //DELETE
-    @RequestMapping(value = "/{userId}", method = RequestMethod.DELETE)
-    public ResponseEntity<HttpResponse> removeProductFromCart(@PathVariable("userId") String userId, @RequestParam(name = "id") Product product) {
+    @DeleteMapping(value = "/cart")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<HttpResponse> removeProductFromCart(@RequestParam(name = "id") Product product) {
+        String userId = keycloackService.getCurrentUserId();
         return ResponseEntity.ok().body(
                 HttpResponse.builder()
                         .timeStamp(now().toString())
@@ -139,8 +159,10 @@ public class OrderController {
                         .build());
     }
 
-    @RequestMapping(value = "/{userId}/reset", method = RequestMethod.DELETE)
-    public ResponseEntity<HttpResponse> resetCart(@PathVariable("userId") String userId) {
+    @DeleteMapping(value = "/reset")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<HttpResponse> resetCart() {
+        String userId = keycloackService.getCurrentUserId();
         return ResponseEntity.ok().body(
                 HttpResponse.builder()
                         .timeStamp(LocalDateTime.now().toString())

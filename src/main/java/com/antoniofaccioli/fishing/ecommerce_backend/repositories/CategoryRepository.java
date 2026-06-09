@@ -17,6 +17,4 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     @Modifying
     @Query("delete from Category c where c.id = ?1") //Elimina una categoria in base al suo ID
     void deleteCategoryById(Long id);
-
-    Optional<Category> findByValue(String catValue); // Trova una categoria in base al suo valore (ad esempio, "Pesca", "Attrezzatura", ecc.)
 }
