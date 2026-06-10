@@ -33,7 +33,7 @@ public class Order {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.STRING) // salva sul database la stringa letterale dell'Enum
     @Column(name = "order_status")
     private OrderStatus orderStatus;
 

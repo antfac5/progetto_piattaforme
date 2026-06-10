@@ -26,10 +26,11 @@ public class SecurityConfiguration {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/products/**").permitAll()        //TODO
-                        .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()   //TODO
-                        .requestMatchers(HttpMethod.GET, "/api/v1/producers/**").permitAll()      //TODO
-                        .anyRequest().authenticated()
+                        .requestMatchers("/api/v1/auth/signup").permitAll() // Libero accesso per la registrazione
+                        .requestMatchers(HttpMethod.GET, "/api/v1/products/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/producers/**").permitAll()
+                        .anyRequest().authenticated()  // Tutto il resto richiede il Token
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter)));

@@ -54,7 +54,7 @@ public class KeycloakService {
 
         // Controllo preventivo sul DB Locale (Fast-Fail per alleggerire Keycloak)
         if (userRepository.existsUserByEmail(cleanEmail)) throw new CustomException("Questa email e' già registrata nel sistema.");
-        if(userRepository.existsUserByUsername(cleanUsername)) throw new CustomException("Questo username e' già registrato nel sistema.");
+        if (userRepository.existsUserByUsername(cleanUsername)) throw new CustomException("Questo username e' già registrato nel sistema.");
 
         RealmResource realmResource = keycloak.realm(appRealm);
         UsersResource usersResource = realmResource.users();
@@ -101,6 +101,7 @@ public class KeycloakService {
             localUser.setEmail(cleanEmail);
             localUser.setFirstName(firstName);
             localUser.setLastName(lastName);
+            localUser.setUsername(cleanUsername);
             localUser.setRoles(Set.of("USER"));
 
             // se c'è una race condition sull'email o sull'ID, l'eccezione viene lanciata QUI immediatamente e non alla fine del thread/metodo.
@@ -188,6 +189,7 @@ public class KeycloakService {
         user.setFirstName(userRep.getFirstName());
         user.setLastName(userRep.getLastName());
         user.setEmail(userRep.getEmail());
+        user.setUsername(userRep.getUsername());
         user.setRoles(extractRoles(userRep));
         return user;
     }

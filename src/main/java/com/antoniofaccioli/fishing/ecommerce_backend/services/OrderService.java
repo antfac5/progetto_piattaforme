@@ -43,19 +43,10 @@ public class OrderService {
     private ProductRepository productRepository;
 
     public Order getPendingCart(String userId){
-        Optional<UserRepresentation> uro = keycloakService.getUserById(userId);
-        if(uro.isEmpty()) throw new CustomException("Utente non trovato.");
-        UserRepresentation userRepresentation = uro.get();
-        User user = userRepository.findById(userRepresentation.getId())
-                .orElseGet(() -> {
-                    User newUser = new User();
-                    newUser.setId(userRepresentation.getId());
-                    newUser.setFirstName(userRepresentation.getFirstName());
-                    newUser.setLastName(userRepresentation.getLastName());
-                    return userRepository.save(newUser);
-                });
+        User user = userRepository.findById(userId)
+                .orElseThrow(()-> new CustomException("Utente non trovato"));
 
-        Order pendingCart = orderRepository.findByUserIdAndOrderStatus(user.getId(), "PENDING");
+        Order pendingCart = orderRepository.findByUserIdAndOrderStatus(user.getId(), OrderStatus.PENDING);
         if (pendingCart == null) {
             pendingCart = new Order();
             pendingCart.setUser(user);
@@ -64,7 +55,6 @@ public class OrderService {
         }
         return pendingCart;
     }
-
     // reset del carrello robusto alla race condition
     @Transactional
     public Order resetCart(String userId){
@@ -76,7 +66,6 @@ public class OrderService {
             if (order.getOrderStatus() != OrderStatus.PENDING) throw new CustomException("Ordine non resettabile");
 
             orderProductRepository.deleteAllByOrderId(order.getId()); //Svuoto le righe in modo atomico
-
             // Reset campi dell'Order
             order.setTotalAmount(0.0);
             order.setShippingAddress(null);
@@ -85,7 +74,6 @@ public class OrderService {
             order.setOrderStatus(OrderStatus.PENDING);
 
             orderRepository.flush(); // Flush per forzare l'aggiornamento e far scattare l'eccezione in caso di modifica concorrente
-
             return order;
         }catch (OptimisticLockingFailureException ex) {
             throw new CustomException("Conflitto: il carrello e' stato modificato da un'altra operazione. Riprova.");

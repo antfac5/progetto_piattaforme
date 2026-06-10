@@ -1,6 +1,7 @@
 package com.antoniofaccioli.fishing.ecommerce_backend.repositories;
 
 import com.antoniofaccioli.fishing.ecommerce_backend.entities.Order;
+import com.antoniofaccioli.fishing.ecommerce_backend.support.enums.OrderStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -26,7 +27,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o WHERE o.user.id = :userId AND o.orderStatus = :orderStatus")
     Order findByUserIdAndOrderStatus(
             @Param("userId") String userId,
-            @Param("orderStatus") String orderStatus);
+            @Param("orderStatus") OrderStatus orderStatus);
 
     @Query("SELECT o FROM Order o WHERE o.orderStatus!= 'PENDING' ORDER BY o.dateCreated DESC")
     List<Order> findAllByOrderStatus();

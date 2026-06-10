@@ -5,6 +5,7 @@ import com.antoniofaccioli.fishing.ecommerce_backend.entities.OrderProduct;
 import com.antoniofaccioli.fishing.ecommerce_backend.entities.Product;
 import com.antoniofaccioli.fishing.ecommerce_backend.repositories.OrderRepository;
 import com.antoniofaccioli.fishing.ecommerce_backend.repositories.ProductRepository;
+import com.antoniofaccioli.fishing.ecommerce_backend.repositories.UserRepository;
 import com.antoniofaccioli.fishing.ecommerce_backend.services.KeycloakService;
 import com.antoniofaccioli.fishing.ecommerce_backend.services.OrderProductService;
 import com.antoniofaccioli.fishing.ecommerce_backend.services.OrderService;
@@ -39,8 +40,6 @@ public class OrderController {
     @Autowired
     private OrderProductService orderProductService;
 
-    @Autowired
-    private OrderRepository orderRepository;
     @Autowired
     private ProductRepository productRepository;
 
