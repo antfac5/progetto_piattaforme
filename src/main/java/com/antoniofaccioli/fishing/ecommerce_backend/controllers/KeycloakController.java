@@ -80,7 +80,7 @@ public class KeycloakController {
     }
 
     // DELETE
-    @DeleteMapping("/keycloak/users/{id}")
+    @DeleteMapping("/keycloak/users/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> deleteUserAccount(@RequestParam String userId){
         keycloakService.deleteUserAccount(userId);
@@ -88,7 +88,7 @@ public class KeycloakController {
     }
 
     //UPDATE
-    @PutMapping("/keycloak/users/{id}")
+    @PutMapping("/keycloak/users/{userIdnode -v}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDto> updateUserAccount(@PathVariable String userId, @Valid @RequestBody UserRequest request){
         log.info("Updated firstname:{}  and lastname:{} of id:{}", request.getFirstname(),request.getLastname(), userId);

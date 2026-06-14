@@ -17,9 +17,6 @@ import java.util.List;
 @Configuration
 public class KeycloakIdentityProvider {
 
-
-    Keycloak keycloak;
-
     @Value("${server-url}")
     private String serverUrl;
 
