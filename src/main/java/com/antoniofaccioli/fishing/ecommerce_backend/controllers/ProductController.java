@@ -21,6 +21,7 @@ import static java.time.LocalDateTime.now;
 
 @RestController
 @RequestMapping("api/v1/products")
+@CrossOrigin(origins = "http://localhost:5173")
 public class ProductController {
 
     @Autowired

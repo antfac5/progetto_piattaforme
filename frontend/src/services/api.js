@@ -3,14 +3,17 @@ import keycloak from './keycloak';
 
 // Creiamo un'istanza globale di Axios puntando al tuo backend Spring Boot
 const api = axios.create({
-    baseURL: import.meta.env.BASE_URL
+    baseURL: import.meta.env.VITE_API_BASE_URL
 });
 
 // Intercettiamo ogni richiesta HTTP prima che parta per inserire il Token JWT
 api.interceptors.request.use(
     (config) => {
+        const isPublicRoute = config.url.includes('/api/v1/products') ||
+            config.url.includes('/api/v1/categories') ||
+            config.url.includes('/api/v1/producers');
         // Se l'utente è loggato ed ha un token valido, lo aggiungiamo all'header Authorization
-        if (keycloak.token) {
+        if (keycloak.authenticated && keycloak.token) {
             config.headers.Authorization = `Bearer ${keycloak.token}`;
         }
         return config;

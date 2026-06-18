@@ -25,7 +25,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://ecommerce-keycloak:8080/realms/fishing}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/fishing}
           jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/fishing/protocol/openid-connect/certs}
 
 jwt:

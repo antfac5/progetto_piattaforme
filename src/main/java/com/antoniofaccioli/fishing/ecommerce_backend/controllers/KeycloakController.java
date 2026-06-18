@@ -88,7 +88,7 @@ public class KeycloakController {
     }
 
     //UPDATE
-    @PutMapping("/keycloak/users/{userIdnode -v}")
+    @PutMapping("/keycloak/users/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDto> updateUserAccount(@PathVariable String userId, @Valid @RequestBody UserRequest request){
         log.info("Updated firstname:{}  and lastname:{} of id:{}", request.getFirstname(),request.getLastname(), userId);
