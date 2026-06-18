@@ -66,10 +66,6 @@ public class ProductService {
         return productRepository.findAllProducts();
     }
 
-     public List<Product> getAllBestSellingProducts() {
-        return productRepository.findAllProductsByNumPurchasesIsNotNull();
-    }
-
     public List<Product> getBestSellingProducts() {
         List<Product> bestSellingProducts = productRepository.findAllProductsByNumPurchasesIsNotNull();
         bestSellingProducts.sort(Comparator.comparingInt(Product::getNumPurchases).reversed());

@@ -24,11 +24,38 @@
 
           <div class="card-body d-flex flex-column">
             <h5 class="card-title fw-bold text-dark">{{ prodotto.name }}</h5>
+            <div class="mb-2">
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                <i class="bi bi-building me-1"></i> {{ prodotto.producer?.name || 'Produttore sconosciuto' }}
+              </span>
+            </div>
             <p class="card-text text-muted flex-grow-1">{{ prodotto.description }}</p>
 
             <div class="d-flex justify-content-between align-items-center mt-3">
-              <span class="fs-4 fw-bold text-success">€ {{ prodotto.price != null ? prodotto.price.toFixed(2) : '0.00' }}</span>
-              <button class="btn btn-primary btn-sm px-3 shadow-sm">
+              <div v-if="prodotto.discount && prodotto.discount > 0" class="d-flex flex-column">
+                <div>
+                  <span class="text-muted text-decoration-line-through fs-6 me-2">
+                    € {{ prodotto.price.toFixed(2) }}
+                  </span>
+                  <span class="badge bg-danger text-white rounded-pill fw-bold p-1 px-2 animate-pulse" style="font-size: 0.75rem;">
+                   -{{ prodotto.discount }}%
+                  </span>
+                </div>
+                <span class="fs-4 fw-bold text-danger">
+                  € {{ prodotto.finalPrice != null ? prodotto.finalPrice.toFixed(2) : '0.00' }}
+                </span>
+              </div>
+
+              <div v-else>
+                <span class="fs-4 fw-bold text-success">
+                  € {{ prodotto.price != null ? prodotto.price.toFixed(2) : '0.00' }}
+                </span>
+              </div>
+              <button
+                  @click="aggiungiAlCarrello(prodotto.id)"
+                  class="btn btn-primary btn-sm px-3 shadow-sm"
+                  :disabled="!isUser"
+                  :title="!isUser ? 'Solo gli utenti acquirenti possono aggiungere prodotti al carrello' : ''">
                 <i class="bi bi-cart-plus-fill me-1"></i> Aggiungi
               </button>
             </div>
@@ -56,8 +83,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import api from '@/services/api'; // Tua istanza con baseURL e token corretti
+import { cartState } from '@/services/cartState';
+import keycloak from '@/services/keycloak';
 
 const prodotti = ref([]);
 const loading = ref(true);
@@ -101,6 +130,31 @@ const cambiaPagina = (nuovaPagina) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 };
+
+// Funzione per aggiungere al carrello
+const aggiungiAlCarrello = async (prodottoId) => {
+  try {
+    // Come specificato in OrderController @PostMapping("/cart")
+    // Il body deve essere semplicemente l'ID del prodotto (Long)
+    await api.post('/api/v1/orders/cart', prodottoId, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    // Aggiorniamo il numero sulla Navbar
+    await cartState.refreshCount();
+
+    // Opzionale: un piccolo feedback all'utente (alert o toast)
+    alert("Prodotto aggiunto al carrello!");
+  } catch (err) {
+    console.error("Errore nell'aggiunta al carrello:", err);
+    alert("Devi essere loggato per aggiungere prodotti al carrello.");
+  }
+};
+
+const isUser = computed(() => {
+  const clientRoles = keycloak.tokenParsed?.resource_access?.['fishing-rest-api']?.roles || [];
+  return keycloak.authenticated && clientRoles.includes('USER');
+});
 
 onMounted(() => {
   fetchProdotti();
