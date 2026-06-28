@@ -168,7 +168,15 @@ const apriModalNuovo = () => {
 const apriModalModifica = (prodotto) => {
   isEditMode.value = true;
   // Copia profonda dell'oggetto per evitare modifiche reattive immediate in tabella
-  form.value = JSON.parse(JSON.stringify(prodotto));
+  const copiaProdotto = JSON.parse(JSON.stringify(prodotto));
+  //Garantisco che gli oggetti innestati esistano e abbiano l'ID originario precompilato.
+  const categoryId = copiaProdotto.category?.id || copiaProdotto.categoryId || (copiaProdotto.category && typeof copiaProdotto.category === 'number' ? copiaProdotto.category : null);
+  const producerId = copiaProdotto.producer?.id || copiaProdotto.producerId || (copiaProdotto.producer && typeof copiaProdotto.producer === 'number' ? copiaProdotto.producer : null);
+
+  copiaProdotto.category = { id: categoryId };
+  copiaProdotto.producer = { id: producerId };
+
+  form.value = copiaProdotto;
   bootstrapModal.show();
 };
 

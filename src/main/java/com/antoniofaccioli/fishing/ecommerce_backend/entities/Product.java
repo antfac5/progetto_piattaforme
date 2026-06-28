@@ -1,5 +1,6 @@
 package com.antoniofaccioli.fishing.ecommerce_backend.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -16,6 +17,7 @@ import java.math.RoundingMode;
 @AllArgsConstructor
 @Entity(name = "Product")
 @Table(name = "product")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -1,5 +1,6 @@
 package com.antoniofaccioli.fishing.ecommerce_backend.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import jakarta.validation.Valid;
@@ -31,6 +32,7 @@ public class Order {
     @ManyToOne
     @OnDelete(action = OnDeleteAction.CASCADE) //se un utente viene cancellato, cancella anche i suoi ordini
     @JoinColumn(name = "user_id")
+    @JsonIgnoreProperties({"roles", "orders"})
     private User user;
 
     @Enumerated(EnumType.STRING) // salva sul database la stringa letterale dell'Enum

@@ -80,7 +80,7 @@ public class KeycloakController {
     }
 
     // DELETE
-    @DeleteMapping("/keycloak/users/{userId}")
+    @DeleteMapping("/keycloak/users")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> deleteUserAccount(@RequestParam String userId){
         keycloakService.deleteUserAccount(userId);

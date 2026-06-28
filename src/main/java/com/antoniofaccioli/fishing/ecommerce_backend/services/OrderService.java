@@ -15,13 +15,16 @@ import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -42,9 +45,42 @@ public class OrderService {
     @Autowired
     private ProductRepository productRepository;
 
+    private User getOrCreateLocalUser(String userId) {
+        return userRepository.findById(userId).orElseGet(() -> {
+            // Recuperiamo l'autenticazione corrente dal contesto di Spring Security
+            var authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            // Se l'autenticazione è un JwtAuthenticationToken (grazie al lavoro di JwtAuthConverter)
+            if (authentication instanceof JwtAuthenticationToken jwtAuthToken) {
+                // Estraiamo l'oggetto Jwt puro che contiene tutti i claim
+                Jwt jwt = jwtAuthToken.getToken();
+
+                log.info("Utente {} non trovato nel DB locale. Avvio sincronizzazione da Keycloak JWT.", userId);
+
+                User localUser = new User();
+                localUser.setId(userId); // Il subject (sub) dell'utente Keycloak
+
+                // Estraiamo i dati usando i claim standard del JWT
+                localUser.setEmail(jwt.getClaimAsString("email"));
+                localUser.setFirstName(jwt.getClaimAsString("given_name"));
+                localUser.setLastName(jwt.getClaimAsString("family_name"));
+
+                // Per lo username, usiamo il claim preferito ("preferred_username")
+                // che è lo stesso che JwtAuthConverter usa di solito come principal
+                localUser.setUsername(jwt.getClaimAsString("preferred_username"));
+
+                // Assegniamo il ruolo base
+                localUser.setRoles(Set.of("USER"));
+
+                return userRepository.saveAndFlush(localUser);
+            }
+
+            throw new CustomException("Impossibile recuperare o creare l'utente: Contesto di sicurezza non valido.");
+        });
+    }
+
     public Order getPendingCart(String userId){
-        User user = userRepository.findById(userId)
-                .orElseThrow(()-> new CustomException("Utente non trovato"));
+        User user = getOrCreateLocalUser(userId);
 
         Order pendingCart = orderRepository.findByUserIdAndOrderStatus(user.getId(), OrderStatus.PENDING);
         if (pendingCart == null) {
@@ -55,6 +91,7 @@ public class OrderService {
         }
         return pendingCart;
     }
+
     // reset del carrello robusto alla race condition
     @Transactional
     public Order resetCart(String userId){
@@ -91,8 +128,7 @@ public class OrderService {
             // Prendo il carrello con OPTIMISTIC_FORCE_INCREMENT (incrementa version)
             Order cart = orderRepository.findPendingCartByUserIdForceIncrement(userId)
                     .orElseGet(() -> {
-                        User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new CustomException("Utente non trovato."));
+                        User user = getOrCreateLocalUser(userId);
 
                         Order o = new Order();
                         o.setUser(user);
@@ -113,6 +149,7 @@ public class OrderService {
 
             if (existing != null) {
                 if(existing.getQuantity() < product.getQuantity()) existing.setQuantity(existing.getQuantity() + 1); // aggiunta quantita'
+                else throw new CustomException("Quantita' massima raggiunta per il prodotto con id: " + product.getId() + ".");
             } else {
                 cart.getOrderProducts().add(new OrderProduct(cart, product, 1)); // nuova riga per il prodotto
             }
@@ -200,7 +237,9 @@ public class OrderService {
                     .orElseThrow(() -> new CustomException("Carrello non trovato."));
 
             List<OrderProduct> products = orderProductRepository.findAllByOrderId(cart.getId());
+            double totaleOrdine = 0.0;
             for(OrderProduct op : products){
+                Product product = op.getPk().getProduct();
                 Long productId = op.getPk().getProduct().getId();
                 int qtyRequested = op.getQuantity();
                 int updated = productRepository.tryDecrementStock(productId, qtyRequested); // decremento stock atomico
@@ -208,6 +247,7 @@ public class OrderService {
                     throw new CustomException("Quantita' non disponibile per il prodotto con id: " + productId);
                 }
                 productRepository.incrementNumPurchases(productId, qtyRequested); // incremento numPurchases atomico
+                totaleOrdine += (product.getFinalPrice() * qtyRequested);
             }
 
             cart.setDateCreated(LocalDateTime.now());
@@ -215,26 +255,26 @@ public class OrderService {
             cart.setRecipientName(orderForm.getRecipientName());
             cart.setShippingAddress(orderForm.getShippingAddress());
             cart.setPhoneNumber(orderForm.getPhoneNumber());
-            cart.setTotalAmount(cart.getTotalPrice());
+            cart.setTotalAmount(totaleOrdine);
 
-            orderRepository.flush(); // Flush per forzare l'aggiornamento e far scattare l'eccezione in caso di modifica concorrente
 
-            createNewPendingCartForUser(userId); // Crea nuovo pending cart per lo stesso userId
             cart.setOrderStatus(OrderStatus.PAID);
-            orderRepository.save(cart); // salvo l'ordine effettuato per lo storico
+            cart.setOrderProducts(products); // Assegna i prodotti già caricati per evitare il Lazy Loading durante il return/serializzazione
+            orderRepository.saveAndFlush(cart); // salvo l'ordine effettuato per lo storico ed effettuo il Flush per forzare l'aggiornamento e far scattare l'eccezione in caso di modifica concorrente
+            createNewPendingCartForUser(userId); // Crea nuovo pending cart per lo stesso userId
             return cart;
         }catch(OptimisticLockingFailureException ex){
             throw new CustomException("Conflitto: il carrello e' stato modificato da un'altra operazione. Riprova.");
         }
     }
 
+
     private void createNewPendingCartForUser(String userId) {
         // se esiste gia' un pending, non fare nulla (idempotente)
         if (orderRepository.findPendingCartByUserIdForceIncrement(userId).isPresent()) {
             return;
         }
-        User user = userRepository.findById(userId).
-                orElseThrow( () -> new CustomException("Utente non trovato."));
+        User user = getOrCreateLocalUser(userId);
 
         Order newPendingCart = new Order();
         newPendingCart.setUser(user);

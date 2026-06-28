@@ -1,6 +1,7 @@
 package com.antoniofaccioli.fishing.ecommerce_backend.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -31,6 +32,7 @@ public class OrderProduct {
     public OrderProduct() {}
 
     @Transient // serve per indicare che questo metodo non deve essere considerato come una proprietà persistente dell'entità, ma è solo un metodo di convenienza per accedere al prodotto associato a questa relazione.
+    @JsonIgnoreProperties({"category", "producer", "hibernateLazyInitializer", "handler"})
     public Product getProduct() {
         return this.pk.getProduct();
     }

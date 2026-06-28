@@ -54,9 +54,12 @@
               <button
                   @click="aggiungiAlCarrello(prodotto.id)"
                   class="btn btn-primary btn-sm px-3 shadow-sm"
-                  :disabled="!isUser"
-                  :title="!isUser ? 'Solo gli utenti acquirenti possono aggiungere prodotti al carrello' : ''">
-                <i class="bi bi-cart-plus-fill me-1"></i> Aggiungi
+                  :disabled="!isUser || prodotto.quantity <= 0"
+                  :title="!isUser
+                          ? 'Solo gli utenti acquirenti possono aggiungere prodotti al carrello'
+                          : (prodotto.quantity <= 0 ? 'Prodotto momentaneamente esaurito' : '')">
+                <i class="bi bi-cart-plus-fill me-1"></i>
+                {{ prodotto.quantity <= 0 ? 'Esaurito' : 'Aggiungi' }}
               </button>
             </div>
           </div>
@@ -134,26 +137,50 @@ const cambiaPagina = (nuovaPagina) => {
 // Funzione per aggiungere al carrello
 const aggiungiAlCarrello = async (prodottoId) => {
   try {
-    // Come specificato in OrderController @PostMapping("/cart")
-    // Il body deve essere semplicemente l'ID del prodotto (Long)
     await api.post('/api/v1/orders/cart', prodottoId, {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    // Aggiorniamo il numero sulla Navbar
+    // Aggiornamento del numero sulla Navbar
     await cartState.refreshCount();
 
-    // Opzionale: un piccolo feedback all'utente (alert o toast)
     alert("Prodotto aggiunto al carrello!");
   } catch (err) {
     console.error("Errore nell'aggiunta al carrello:", err);
-    alert("Devi essere loggato per aggiungere prodotti al carrello.");
+    // In base all'errore do un messaggio d'errore diverso
+    if (err.response) {
+      const status = err.response.status;
+      const serverMessage = err.response.data?.message;
+
+      if (status === 401 || status === 403) {
+        // Utente non autenticato o sessione scaduta
+        alert("Sessione scaduta o non valida. Effettua nuovamente il login.");
+      } else if (status === 400 && serverMessage) {
+        alert(serverMessage);
+      } else if (status === 409) {
+        // Conflitto di concorrenza (Optimistic Locking)
+        alert("Il carrello è stato aggiornato altrove. Riprova tra un istante.");
+      } else if(status === 500){
+        alert ("Quantità massima raggiunta per questo prodotto.");
+      } else {
+        // Altri errori del server
+        alert(serverMessage || "Si è verificato un errore sul server. Riprova più tardi.");
+      }
+    }
+    // 2. Il server non ha risposto (problema di rete locale o server spento)
+    else if (err.request) {
+      alert("Impossibile contattare il server. Controlla la tua connessione a internet.");
+    }
+    // 3. Errore generico di configurazione nel frontend
+    else {
+      alert("Si è verificato un errore imprevisto.");
+    }
   }
 };
 
 const isUser = computed(() => {
   const clientRoles = keycloak.tokenParsed?.resource_access?.['fishing-rest-api']?.roles || [];
-  return keycloak.authenticated && clientRoles.includes('USER');
+  return keycloak.authenticated && clientRoles.includes('USER') && !clientRoles.includes('ADMIN');
 });
 
 onMounted(() => {

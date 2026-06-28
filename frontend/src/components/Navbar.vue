@@ -17,6 +17,11 @@
               <i class="bi bi-grid-3x3-gap"></i> Produttori
             </RouterLink>
           </li>
+          <li v-if="isAdmin" class="nav-item">
+            <RouterLink class="nav-link text-warning fw-semibold" to="/admin/categories">
+              <i class="bi bi-tags-fill"></i> Categorie
+            </RouterLink>
+          </li>
         </ul>
 
         <div class="d-flex align-items-center gap-3 text-white">
@@ -51,10 +56,9 @@ import { cartState } from '@/services/cartState'; // Importiamo lo stato del car
 
 const username = ref('');
 
-// Controlla se l'utente ha il ruolo USER all'interno del client o a livello di Realm
 const isUser = computed(() => {
   const clientRoles = keycloak.tokenParsed?.resource_access?.['fishing-rest-api']?.roles || [];
-  return keycloak.authenticated && clientRoles.includes('USER');
+  return keycloak.authenticated && clientRoles.includes('USER') && !clientRoles.includes('ADMIN');
 });
 
 const isAdmin = computed(() => {

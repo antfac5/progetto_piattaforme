@@ -40,49 +40,59 @@
               </tr>
               </thead>
               <tbody>
-              <tr v-for="item in cartItems" :key="item.id" class="align-middle">
-                <td class="py-3 border-bottom">
-                  <div class="d-flex align-items-center">
-                    <img :src="item.product.imageUrl || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'60\' height=\'60\'><rect width=\'100%\' height=\'100%\' fill=\'%23eee\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'10\' fill=\'%23aaa\'>No Img</text></svg>'"
-                         alt="Prodotto"
-                         class="rounded me-3 border"
-                         style="width: 60px; height: 60px; object-fit: cover;">
-                    <div>
-                      <h6 class="mb-0 fw-bold text-dark">{{ item.product.name }}</h6>
-                      <small class="text-muted d-block" style="font-size: 0.8rem;">
-                        Produttore: {{ item.product.producer?.name || 'Sconosciuto' }}
-                      </small>
-                      <span v-if="item.product.discount > 0" class="badge bg-danger-subtle text-danger p-1 px-2 mt-1" style="font-size: 0.7rem;">
+                <tr v-for="item in cartItems" :key="item.id" class="align-middle">
+                  <td class="py-3 border-bottom">
+                    <div class="d-flex align-items-center">
+                      <img :src="item.product.imageUrl || 'https://via.placeholder.com/60'"
+                           alt="Prodotto"
+                           class="rounded me-3 border"
+                           style="width: 60px; height: 60px; object-fit: cover;">
+                      <div>
+                        <h6 class="mb-0 fw-bold text-dark">{{ item.product.name }}</h6>
+                        <small class="text-muted d-block" style="font-size: 0.8rem;">
+                          Produttore: {{ item.product.producer?.name || 'Sconosciuto' }}
+                        </small>
+                        <span v-if="item.product.discount > 0" class="badge bg-danger-subtle text-danger p-1 px-2 mt-1" style="font-size: 0.7rem;">
                           Sconto {{ item.product.discount }}% applicato
                         </span>
+                      </div>
                     </div>
-                  </div>
-                </td>
-
-                <td class="py-3 border-bottom text-center fw-bold text-muted">
-                    <span class="badge bg-light text-dark border p-2 px-3 fs-6">
-                      {{ item.quantity }}
-                    </span>
-                </td>
-
-                <td class="py-3 border-bottom text-end">
-                  <div v-if="item.product.discount > 0">
+                  </td>
+                  <td class="py-3 border-bottom text-center">
+                    <div class="input-group input-group-sm justify-content-center mx-auto" style="max-width: 110px;">
+                      <button @click="riduciQuantita(item)" class="btn btn-outline-secondary" type="button" :disabled="item.quantity <= 1">
+                        <i class="bi bi-minus"></i>
+                      </button>
+                      <span class="form-control text-center bg-white border-secondary-subtle fw-bold" style="min-width: 35px;">
+                        {{ item.quantity }}
+                      </span>
+                      <button @click="aumentaQuantita(item)" class="btn btn-outline-secondary" type="button">
+                        <i class="bi bi-plus"></i>
+                      </button>
+                    </div>
+                  </td>
+                  <td class="py-3 border-bottom text-end">
+                    <div v-if="item.product.discount > 0">
                       <span class="text-muted text-decoration-line-through small d-block">
                         € {{ item.product.price.toFixed(2) }}
                       </span>
-                    <span class="text-danger fw-bold">
+                      <span class="text-danger fw-bold">
                         € {{ getEffectivePrice(item.product).toFixed(2) }}
                       </span>
-                  </div>
-                  <div v-else class="text-dark fw-semibold">
-                    € {{ item.product.price.toFixed(2) }}
-                  </div>
-                </td>
-
-                <td class="py-3 border-bottom text-end fw-bold text-primary">
-                  € {{ (getEffectivePrice(item.product) * item.quantity).toFixed(2) }}
-                </td>
-              </tr>
+                    </div>
+                    <div v-else class="text-dark fw-semibold">
+                      € {{ item.product.price.toFixed(2) }}
+                    </div>
+                  </td>
+                  <td class="py-3 border-bottom text-end fw-bold text-primary">
+                    € {{ (getEffectivePrice(item.product) * item.quantity).toFixed(2) }}
+                  </td>
+                  <td class="py-3 border-bottom text-center">
+                    <button @click="rimuoviDalCarrello(item.product.id)" class="btn btn-link text-danger p-0" title="Rimuovi dal carrello">
+                      <i class="bi bi-trash3 fs-5"></i>
+                    </button>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -124,13 +134,14 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import api from '@/services/api';
 import { cartState } from '@/services/cartState';
 
 const cartItems = ref([]);
 const loading = ref(true);
 const error = ref(null);
+const router = useRouter();
 
 // Recupera i prodotti effettivi dentro al carrello
 const fetchCart = async () => {
@@ -144,6 +155,62 @@ const fetchCart = async () => {
     error.value = "Impossibile caricare il carrello. Riprova più tardi.";
   } finally {
     loading.value = false;
+  }
+};
+
+// INCREMENTA QUANTITÀ (+1)
+const aumentaQuantita = async (item) => {
+  try {
+    // In accordo con @PutMapping(value = "/incr-quantity/product") e @RequestParam(name = "id")
+    await api.put('/api/v1/orders/incr-quantity/product', null, {
+      params: { id: item.product.id }
+    });
+
+    // Rinfreschiamo i dati globali del carrello e il badge sulla Navbar
+    await fetchCart();
+    await cartState.refreshCount();
+  } catch (err) {
+    console.error("Errore nell'incremento della quantità:", err);
+    alert("Impossibile incrementare la quantità.");
+  }
+};
+
+// RIDUCI QUANTITÀ (-1)
+const riduciQuantita = async (item) => {
+  // Evitiamo il decremento se la quantità è già a 1
+  if (item.quantity <= 1) return;
+
+  try {
+    // In accordo con @PutMapping(value = "/decr-quantity/product") e @RequestParam(name = "id")
+    await api.put('/api/v1/orders/decr-quantity/product', null, {
+      params: { id: item.product.id }
+    });
+
+    // Rinfreschiamo i dati globali del carrello e il badge sulla Navbar
+    await fetchCart();
+    await cartState.refreshCount();
+  } catch (err) {
+    console.error("Errore nel decremento della quantità:", err);
+    alert("Impossibile decrementare la quantità.");
+  }
+};
+
+// RIMUOVI COMPLETAMENTE IL PRODOTTO DAL CARRELLO
+const rimuoviDalCarrello = async (productId) => {
+  if (confirm("Vuoi rimuovere completamente questo prodotto dal carrello?")) {
+    try {
+      // In accordo con @DeleteMapping(value = "/cart") e @RequestParam(name = "id")
+      await api.delete('/api/v1/orders/cart', {
+        params: { id: productId }
+      });
+
+      alert("Prodotto rimosso dal carrello.");
+      await fetchCart();
+      await cartState.refreshCount();
+    } catch (err) {
+      console.error("Errore durante la rimozione totale dal carrello:", err);
+      alert("Impossibile rimuovere il prodotto.");
+    }
   }
 };
 
@@ -176,7 +243,12 @@ const calcolaTotaleFinale = computed(() => {
 });
 
 const procediAlCheckout = () => {
-  alert("Logica di checkout o pagamento da implementare!");
+  try{
+    router.push('/checkout');
+  } catch(err){
+    console.error("Si e' verificato un problema!", err);
+    alert("Impossibile procedere con l'acquisto.");
+  }
 };
 
 onMounted(() => {

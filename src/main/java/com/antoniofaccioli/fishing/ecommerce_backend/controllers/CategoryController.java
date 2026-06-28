@@ -43,7 +43,7 @@ public class CategoryController {
     public List<Category> getAllCategories() {return categoryService.getAllCategories();}
 
     //UPDATE
-    @RequestMapping(value = "/{id}", method = RequestMethod.PUT)
+    @PutMapping(value = "/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<HttpResponse> updateCategory(@PathVariable("id") Long id , @RequestBody String name) {
         if (name == null)
@@ -60,7 +60,7 @@ public class CategoryController {
     }
 
     //DELETE
-    @RequestMapping(value = "/{id}", method = RequestMethod.DELETE)
+    @DeleteMapping(value = "/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<HttpResponse> deleteCategoryById(@PathVariable("id") Long id) {
         return ResponseEntity.ok().body(

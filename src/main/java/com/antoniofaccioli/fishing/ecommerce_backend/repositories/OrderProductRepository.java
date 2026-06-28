@@ -19,7 +19,8 @@ public interface OrderProductRepository extends JpaRepository<OrderProduct, Orde
             @Param("productId") Long productId,
             @Param("orderId") Long orderId);
 
-    @Query("SELECT op FROM OrderProduct op WHERE op.pk.order.id = :cartId") //restiuisce tutti i prodotti associati ad un ordine
+    // Rimuovi l'EntityGraph e usa direttamente il JOIN FETCH nella query per eliminare il Proxy Lazy
+    @Query("SELECT op FROM OrderProduct op JOIN FETCH op.pk.product WHERE op.pk.order.id = :cartId") // restituisce tutti i prodotti associati ad un ordine specifico
     List<OrderProduct> findAllByOrderId(
             @Param("cartId") Long orderId);
 
