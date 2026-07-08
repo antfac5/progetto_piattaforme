@@ -1,8 +1,19 @@
 <template>
   <div class="container mt-5">
-    <div class="text-center mb-5">
-      <h1 class="display-4 fw-bold text-primary"><i class="bi bi-water"></i> Giamà Fishing</h1>
-      <p class="lead text-muted">Benvenuto! Esplora il nostro catalogo di attrezzatura da pesca</p>
+
+    <div class="text-center mb-5 py-4 position-relative overflow-hidden rounded-4 bg-white bg-opacity-50 backdrop-blur shadow-sm border border-white">
+      <div class="position-absolute top-50 start-50 translate-middle opacity-10 z-0" style="font-size: 10rem; transform: translate(-50%, -50%) rotate(-15deg) !important;">
+        <i class="bi bi-waves text-info"></i>
+      </div>
+
+      <div class="position-relative z-1">
+        <h1 class="display-3 fw-black logo-text mb-2 text-uppercase tracking-tight">
+          <i class="bi bi-water me-2 animate-float"></i>Giamà Fishing
+        </h1>
+        <p class="lead text-muted fw-normal max-w-600 mx-auto px-3">
+          Attrezzatura da pesca professionale selezionata per le tue avventure in mare e acqua dolce.
+        </p>
+      </div>
     </div>
 
     <div v-if="loading" class="text-center my-5">
@@ -17,10 +28,10 @@
     <div v-if="!loading && !error" class="row row-cols-1 row-cols-md-3 g-4">
       <div class="col" v-for="prodotto in prodotti" :key="prodotto.id">
         <div class="card h-100 shadow-sm border-0 img-hover-effect">
-          <img :src="prodotto.imageUrl || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'200\' viewBox=\'0 0 300 200\'><rect width=\'100%\' height=\'100%\' fill=\'%23eee\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-family=\'sans-serif\' font-size=\'16\' fill=\'%23aaa\'>Nessuna Immagine</text></svg>'"
-               class="card-img-top"
+          <img :src="prodotto.imageUrl || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'200\' viewBox=\'0 0 300 200\'><rect width=\'100%\' height=\'100%\' fill=\'%23f5f5f5\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-family=\'sans-serif\' font-size=\'16\' fill=\'%23aaa\'>Nessuna Immagine</text></svg>'"
+               class="card-img-top p-3 bg-white"
                alt="Immagine prodotto"
-               style="height: 200px; object-fit: cover;">
+               style="height: 200px; object-fit: contain;">
 
           <div class="card-body d-flex flex-column">
             <h5 class="card-title fw-bold text-dark">{{ prodotto.name }}</h5>

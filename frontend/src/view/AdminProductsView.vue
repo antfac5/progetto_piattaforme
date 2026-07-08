@@ -28,7 +28,7 @@
             <td>{{ p.id }}</td>
             <td>
               <div class="d-flex align-items-center">
-                <img :src="p.imageUrl" alt="" class="rounded me-2 border" style="width: 40px; height: 40px; object-fit: cover;">
+                <img :src="p.imageUrl || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\'><rect width=\'100%\' height=\'100%\' fill=\'%23f5f5f5\'/></svg>'" alt="" class="rounded me-2 border" style="width: 40px; height: 40px; object-fit: cover;">
                 <div>
                   <span class="fw-bold d-block text-dark">{{ p.name }}</span>
                   <small class="text-muted">{{ p.producer?.name }}</small>
@@ -73,7 +73,7 @@
               <div class="row g-3">
                 <div class="col-md-6">
                   <label class="form-label fw-semibold">Nome Prodotto</label>
-                  <input v-model="form.name" type="text" class="form-validate form-control" required>
+                  <input v-model="form.name" type="text" class="form-control" required>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label fw-semibold">URL Immagine</label>
@@ -95,13 +95,25 @@
                   <label class="form-label fw-semibold">Descrizione</label>
                   <textarea v-model="form.description" class="form-control" rows="3" required></textarea>
                 </div>
+
                 <div class="col-md-6">
-                  <label class="form-label fw-semibold">ID Categoria</label>
-                  <input v-model.number="form.category.id" type="number" class="form-control" required>
+                  <label class="form-label fw-semibold">Categoria</label>
+                  <select v-model.number="form.category.id" class="form-select" required>
+                    <option :value="null" disabled>Scegli la categoria...</option>
+                    <option v-for="c in categorie" :key="c.id" :value="c.id">
+                      {{ c.id }} - {{ c.name }}
+                    </option>
+                  </select>
                 </div>
+
                 <div class="col-md-6">
-                  <label class="form-label fw-semibold">ID Produttore</label>
-                  <input v-model.number="form.producer.id" type="number" class="form-control" required>
+                  <label class="form-label fw-semibold">Produttore / Marchio</label>
+                  <select v-model.number="form.producer.id" class="form-select" required>
+                    <option :value="null" disabled>Scegli il produttore...</option>
+                    <option v-for="p in produttori" :key="p.id" :value="p.id">
+                      {{ p.id }} - {{ p.name }}
+                    </option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -121,15 +133,16 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import api from '@/services/api';
-// Importiamo l'oggetto Modal nativo di Bootstrap (assicurati che bootstrap sia installato via npm)
 import { Modal } from 'bootstrap';
 
 const prodotti = ref([]);
+const categorie = ref([]);   // Array per memorizzare le categorie
+const produttori = ref([]);  // Array per memorizzare i produttori
+
 const isEditMode = ref(false);
 const modalRef = ref(null);
 let bootstrapModal = null;
 
-// Modello dati del form (strutturato come Product.java)
 const formDefault = () => ({
   id: null,
   name: '',
@@ -143,7 +156,7 @@ const formDefault = () => ({
 });
 const form = ref(formDefault());
 
-// Carica tutti i prodotti (per semplicità prendiamo la prima pagina corposa)
+// 1. Carica tutti i prodotti
 const caricaProdotti = async () => {
   try {
     const response = await api.get('/api/v1/products', { params: { page: 0, size: 50 } });
@@ -153,23 +166,61 @@ const caricaProdotti = async () => {
   }
 };
 
+// 2. Carica le Categorie (con controllo flessibile della struttura)
+const caricaCategorie = async () => {
+  try {
+    const response = await api.get('/api/v1/categories');
+    console.log("DEBUG CATEGORIE - Struttura completa ricevuta:", response.data);
+
+    if (Array.isArray(response.data)) {
+      categorie.value = response.data;
+    } else if (response.data?.data && Array.isArray(response.data.data)) {
+      categorie.value = response.data.data;
+    } else if (response.data?.data?.categories) {
+      categorie.value = response.data.data.categories;
+    } else {
+      console.warn("Attenzione: Struttura JSON categorie non riconosciuta automaticamente.");
+    }
+  } catch (err) {
+    console.error("Errore HTTP nel caricamento delle categorie (Verifica l'URL del Controller):", err);
+  }
+};
+
+// 3. Carica i Produttori (con controllo flessibile della struttura)
+const caricaProduttori = async () => {
+  try {
+    const response = await api.get('/api/v1/producers');
+    console.log("DEBUG PRODUTTORI - Struttura completa ricevuta:", response.data);
+
+    if (Array.isArray(response.data)) {
+      produttori.value = response.data;
+    } else if (response.data?.data && Array.isArray(response.data.data)) {
+      produttori.value = response.data.data;
+    } else {
+      console.warn("Attenzione: Struttura JSON produttori non riconosciuta automaticamente.");
+    }
+  } catch (err) {
+    console.error("Errore HTTP nel caricamento dei produttori:", err);
+  }
+};
+
 onMounted(() => {
   caricaProdotti();
-  // Inizializziamo il modal Bootstrap programmaticamente
+  caricaCategorie();   // Carica le categorie all'avvio
+  caricaProduttori();  // Carica i produttori all'avvio
   bootstrapModal = new Modal(modalRef.value);
 });
 
 const apriModalNuovo = () => {
   isEditMode.value = false;
-  form.value = formDefault(); // Resetta il form
+  form.value = formDefault();
   bootstrapModal.show();
 };
 
 const apriModalModifica = (prodotto) => {
   isEditMode.value = true;
-  // Copia profonda dell'oggetto per evitare modifiche reattive immediate in tabella
   const copiaProdotto = JSON.parse(JSON.stringify(prodotto));
-  //Garantisco che gli oggetti innestati esistano e abbiano l'ID originario precompilato.
+
   const categoryId = copiaProdotto.category?.id || copiaProdotto.categoryId || (copiaProdotto.category && typeof copiaProdotto.category === 'number' ? copiaProdotto.category : null);
   const producerId = copiaProdotto.producer?.id || copiaProdotto.producerId || (copiaProdotto.producer && typeof copiaProdotto.producer === 'number' ? copiaProdotto.producer : null);
 
@@ -180,31 +231,26 @@ const apriModalModifica = (prodotto) => {
   bootstrapModal.show();
 };
 
-// Funzione Unica di Salvataggio (POST per inserire, PUT per aggiornare)
 const salvaProdotto = async () => {
   try {
     if (isEditMode.value) {
-      // In accordo con ProductController @RequestMapping(method = RequestMethod.PUT)
       await api.put('/api/v1/products', form.value);
       alert("Prodotto aggiornato con successo!");
     } else {
-      // In accordo con ProductController @PostMapping
       await api.post('/api/v1/products', form.value);
       alert("Nuovo prodotto inserito nel catalogo!");
     }
     bootstrapModal.hide();
-    caricaProdotti(); // Ricarica la tabella aggiornata
+    caricaProdotti();
   } catch (err) {
     console.error("Errore nel salvataggio:", err);
     alert("Operazione non riuscita. Controlla i dati immessi.");
   }
 };
 
-// Funzione di Eliminazione
 const eliminaProdotto = async (id) => {
   if (confirm("Sei sicuro di voler eliminare definitivamente questo prodotto dal catalogo?")) {
     try {
-      // In accordo con ProductController @RequestMapping(value = "/product", method = RequestMethod.DELETE)
       await api.delete('/api/v1/products/product', { params: { productId: id } });
       alert("Prodotto eliminato correttamente.");
       caricaProdotti();

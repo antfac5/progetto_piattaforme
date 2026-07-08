@@ -9,6 +9,7 @@ const keycloakConfig = {
 
 const keycloak = new Keycloak(keycloakConfig);
 
+// Funzione per inizializzare Keycloak
 export const initKeycloak = (onAuthenticated) => {
     keycloak
         .init({
